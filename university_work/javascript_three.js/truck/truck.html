@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Truck</title>
+	<style>
+		body { margin: 0; padding: 0; }
+		canvas { width: 100%; height: 100%; }
+	</style>
+</head>
+<body>
+<input type=button value='<', id='lTruck' onclick='Step=-1;'>
+<input type=button value='Stop', id='stopTruck' onclick='Step=0;'>
+<input type=button value='>', id='rTruck' onclick='Step=1;'>
+<script src="http://livelab.spb.ru/x3d/three.min.js"></script>
+<script src="http://livelab.spb.ru/x3d/TrackballControls.js"></script>
+<script src="http://livelab.spb.ru/x3d/OBJLoader.js"></script>
+<script src="http://livelab.spb.ru/x3d/DDSLoader.js"></script>
+<script src="http://livelab.spb.ru/x3d/MTLLoader.js"></script>
+<script>
+	var WIDTH = window.innerWidth;
+	var HEIGHT = window.innerHeight;
+	
+	// Scene
+	scene = new THREE.Scene();
+	scene.background = new THREE.Color(0xccccff);
+
+	// Camera
+	camera = new THREE.PerspectiveCamera(80,WIDTH/HEIGHT,1,1000);
+	camera.position.x = 0;
+	camera.position.y = -60;
+	camera.position.z = 30;
+	camera.lookAt(scene.position);
+	
+	// Renderer
+	renderer = new THREE.WebGLRenderer({alpha:true,antialias:true});
+	renderer.setSize(WIDTH, HEIGHT);
+	renderer.setClearColor(0xffffff, 1);
+	document.body.appendChild(renderer.domElement);
+	
+	// Camera control module
+	controls = new THREE.TrackballControls(camera,renderer.domElement);
+	controls.rotateSpeed = 1.0;
+	controls.zoomSpeed = 1.2;
+	controls.panSpeed = 0.8;
+	controls.noZoom = false;
+	controls.noPan = true;
+	controls.staticMoving = false;
+	controls.dynamicDampingFactor = 0.2;
+	
+	
+	// Main code
+	
+	Step = 0;
+	X = 0; Y = 0; Z = 0; W = 12; ang = 0;
+	
+	// Load the materials
+	function SetColStuff() {
+		glassfile = "http://livelab.spb.ru/labs/files/glass.png";
+		housefile = "http://livelab.spb.ru/labs/files/TexturePol.jpg";
+	}
+	
+	// Function to create glass material
+	function GlassMaterial(color) {
+		var load = new THREE.TextureLoader().load(glassfile);
+		var material = new THREE.MeshPhongMaterial( {color: color,
+			  map: load, overdraw: false,
+			  depthWrite: true, opacity: 0.3, transparent: true} );
+		return material;
+	}
+	
+	// Function to create wood material
+	function WoodMaterial(color) {
+		var load = new THREE.TextureLoader().load(housefile);
+		var material = new THREE.MeshPhongMaterial( {color: color,
+            map: load, overdraw: false,
+            depthWrite: true, opacity: 1, transparent: true} );
+		return material;
+	}
+	
+	// Function to draw the box
+	function Box(width, height, depth, color, materialType) {
+		var geometry = new THREE.CubeGeometry(width, height, depth);
+		if (materialType == "glass") {
+			var material = GlassMaterial(color);
+		}
+		else if (materialType == "wood") {
+			var material = WoodMaterial(color);
+		}
+		else {
+			var material = new THREE.MeshLambertMaterial({
+				color: color
+			});
+		}	
+		return new THREE.Mesh(geometry, material);
+	}
+
+	// Function to draw a cylinder
+	function Cyl(radiusTop, radiusBottom, height, radialSegments, color) {
+		var geometry = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, radialSegments);
+		var material = new THREE.MeshLambertMaterial({
+			color: color
+		});
+		return new THREE.Mesh(geometry, material);
+	}
+	
+	// Function to draw a torus
+    function Torus(radius, tube, radialSegments, tubularSegments, arc, color) {
+        var geometry = new THREE.TorusGeometry(radius, tube, radialSegments, tubularSegments, arc);
+		var material = new THREE.MeshLambertMaterial({
+            color: color
+        });
+        return new THREE.Mesh(geometry, material);
+    }
+	
+	// Function to draw a sphere
+    function Sphere(radius, widthSegments, heightSegments, thetaLength, color) {
+        var geometry = new THREE.SphereGeometry(radius, widthSegments, heightSegments, 0, 2*Math.PI, 0, thetaLength);
+		var material = new THREE.MeshLambertMaterial({
+            color: color
+        });
+		material.side = THREE.DoubleSide;
+        return new THREE.Mesh(geometry, material);
+    }
+	
+	// Function to draw a right triangle
+    function RectTriangle(legX, legY, color) {
+	
+		var geometry = new THREE.Geometry();
+		var v1 = new THREE.Vector3(0, 0, 0);
+		var v2 = new THREE.Vector3(0, 0, legX);
+		var v3 = new THREE.Vector3(legY, 0, 0);
+		var triangle = new THREE.Triangle(v1, v2, v3);
+		var normal = triangle.normal();
+		geometry.vertices.push(triangle.a);
+		geometry.vertices.push(triangle.b);
+		geometry.vertices.push(triangle.c);
+		geometry.faces.push(new THREE.Face3(0, 1, 2, normal));
+		
+		var material = GlassMaterial(color);
+        return new THREE.Mesh(geometry, material);
+    }
+	
+	// Functions to draw details
+	// Wheels
+	function DrawWheels() {
+		var wheels = new THREE.Group();
+		
+		// Front wheels
+		var wheelFrontLeft = Torus(0.45, 0.15, 8, 16, 2*Math.PI, "#000000");
+		wheelFrontLeft.rotateY(Math.PI/2);
+		wheelFrontLeft.rotateX(Math.PI/2);
+		var wheelFrontRight = wheelFrontLeft.clone();
+		
+		wheelFrontLeft.position.set(-2, -1, -0.5); 
+		wheelFrontRight.position.set(-2, 1, -0.5);
+		
+		wheels.add(wheelFrontLeft); 
+		wheels.add(wheelFrontRight); 
+		
+		// Rear wheels - twin
+		var wheelRearLeftInner = wheelFrontLeft.clone();
+		var wheelRearLeftOuter = wheelFrontLeft.clone();
+		var wheelRearRightInner = wheelFrontLeft.clone();
+		var wheelRearRightOuter = wheelFrontLeft.clone();
+		
+		wheelRearLeftInner.position.set(1.8, -0.85, -0.5); 
+		wheelRearLeftOuter.position.set(1.8, -1.15, -0.5); 
+		wheelRearRightInner.position.set(1.8, 0.85, -0.5);
+		wheelRearRightOuter.position.set(1.8, 1.15, -0.5);
+		
+		wheels.add(wheelRearLeftInner); 
+		wheels.add(wheelRearLeftOuter); 
+		wheels.add(wheelRearRightInner); 
+		wheels.add(wheelRearRightOuter); 
+		
+		return wheels;
+	}
+	
+	// Wheel rims
+	function DrawRims() {
+		var rims = new THREE.Group();
+		
+		// Front wheel rims
+		var rimFrontLeft = Cyl(0.4, 0.4, 0.06, 12, "#666666");
+		var rimFrontRight = rimFrontLeft.clone();
+		
+		rimFrontLeft.position.set(-2, -1, -0.5);
+		rimFrontRight.position.set(-2, 1, -0.5);
+		
+		rims.add(rimFrontLeft); 
+		rims.add(rimFrontRight); 
+		
+		// Rear wheel rims
+		var rimRearLeftInner = rimFrontLeft.clone();
+		var rimRearLeftOuter = rimFrontLeft.clone();
+		var rimRearRightInner = rimFrontLeft.clone();
+		var rimRearRightOuter = rimFrontLeft.clone();
+		
+		rimRearLeftInner.position.set(1.8, -0.85, -0.5); 
+		rimRearLeftOuter.position.set(1.8, -1.15, -0.5); 
+		rimRearRightInner.position.set(1.8, 0.85, -0.5);
+		rimRearRightOuter.position.set(1.8, 1.15, -0.5);
+		
+		rims.add(rimRearLeftInner); 
+		rims.add(rimRearLeftOuter); 
+		rims.add(rimRearRightInner); 
+		rims.add(rimRearRightOuter); 
+		
+		return rims;
+	}
+	
+	// Suspension arms and cardan shaft
+	function DrawArms() {
+		var arms = new THREE.Group();
+		
+		// Front and rear suspension arms
+		var armFront = Cyl(0.05, 0.05, 2, 12, "#000000");
+		var armRear = armFront.clone();
+		
+		armFront.position.set(-2, 0.1, -0.5);
+		armRear.position.set(1.8, 0.1, -0.5);
+		
+		arms.add(armFront); 
+		arms.add(armRear); 
+		
+		// Cardan shaft
+		var cardanShaft = Cyl(0.05, 0.05, 3.8, 12, "#000000");
+		cardanShaft.rotateZ(Math.PI/2);
+		cardanShaft.position.set(-0.1, 0, -0.5);
+		arms.add(cardanShaft);
+		
+		return arms;
+	}
+	
+	// Beam и front
+	function DrawBeams() {
+		var beams = new THREE.Group();
+		
+		// Beam
+		var beam = Box(6.5, 1.1, 0.4, "#333300");
+		beam.position.set(0.37, 0, -0.1);
+		beams.add(beam);
+		
+		// Front Beam
+		var frontBeam1 = Torus(4.1, 0.1, 8, 16, 1/6*Math.PI, "#333300");
+		frontBeam1.rotateZ(11*Math.PI/12);
+		var frontBeam2 = frontBeam1.clone();
+		var frontBeam3 = frontBeam1.clone();
+		var frontBeam4 = frontBeam1.clone();
+		var frontBeam5 = frontBeam1.clone();
+		
+		frontBeam1.position.set(1.15, 0, -0.25);
+		frontBeam2.position.set(1.15, 0, -0.2);
+		frontBeam3.position.set(1.15, 0, -0.15);
+		frontBeam4.position.set(1.15, 0, -0.1);
+		frontBeam5.position.set(1.15, 0, -0.05);
+		
+		beams.add(frontBeam1);
+		beams.add(frontBeam2);
+		beams.add(frontBeam3);
+		beams.add(frontBeam4);
+		beams.add(frontBeam5);
+		
+		return beams;
+	}
+	
+	// Front with radiator grille
+	function DrawCabinFront() {
+		var cabinFrontWithGrille = new THREE.Group();
+		
+		// Cabin Front
+		var cabinFront = Cyl(0.6, 1.3, 1.7, 4, "#333300");
+		cabinFront.rotateX(Math.PI/4);
+		cabinFront.rotateZ(Math.PI/2);
+		cabinFront.position.set(-2, 0, 0.5);
+		cabinFrontWithGrille.add(cabinFront);
+		
+		// Radiator grille
+		var radiatorGrille1 = Cyl(0.02, 0.02, 0.68, 8, "#000000");
+		radiatorGrille1.rotateX(Math.PI/2);
+		var radiatorGrille2 = radiatorGrille1.clone();
+		var radiatorGrille3 = radiatorGrille1.clone();
+		var radiatorGrille4 = radiatorGrille1.clone();
+		var radiatorGrille5 = radiatorGrille1.clone();
+		var radiatorGrille6 = radiatorGrille1.clone();
+		var radiatorGrille7 = radiatorGrille1.clone();
+		var radiatorGrille8 = radiatorGrille1.clone();
+		var radiatorGrille9 = radiatorGrille1.clone();
+		var radiatorGrille10 = radiatorGrille1.clone();
+		var radiatorGrille11 = radiatorGrille1.clone();
+		
+		radiatorGrille1.position.set(-2.835, -0.35, 0.52);
+		radiatorGrille2.position.set(-2.835, -0.28, 0.52);
+		radiatorGrille3.position.set(-2.835, -0.21, 0.52);
+		radiatorGrille4.position.set(-2.835, -0.14, 0.52);
+		radiatorGrille5.position.set(-2.835, -0.07, 0.52);
+		radiatorGrille6.position.set(-2.835, 0, 0.52);
+		radiatorGrille7.position.set(-2.835, 0.07, 0.52);
+		radiatorGrille8.position.set(-2.835, 0.14, 0.52);
+		radiatorGrille9.position.set(-2.835, 0.21, 0.52);
+		radiatorGrille10.position.set(-2.835, 0.28, 0.52);
+		radiatorGrille11.position.set(-2.835, 0.35, 0.52);
+		
+		cabinFrontWithGrille.add(radiatorGrille1);
+		cabinFrontWithGrille.add(radiatorGrille2);
+		cabinFrontWithGrille.add(radiatorGrille3);
+		cabinFrontWithGrille.add(radiatorGrille4);
+		cabinFrontWithGrille.add(radiatorGrille5);
+		cabinFrontWithGrille.add(radiatorGrille6);
+		cabinFrontWithGrille.add(radiatorGrille7);
+		cabinFrontWithGrille.add(radiatorGrille8);
+		cabinFrontWithGrille.add(radiatorGrille9);
+		cabinFrontWithGrille.add(radiatorGrille10);
+		cabinFrontWithGrille.add(radiatorGrille11);
+		
+		return cabinFrontWithGrille;
+	}
+	
+	// Cabin Main
+	function DrawCabinMain() {
+		var сabinMain = new THREE.Group();
+		
+		// Cabin Bottom
+		var cabinBottom = Box(1, 1.82, 0.5, "#333300");
+		cabinBottom.position.set(-0.65, 0, -0.15);
+		сabinMain.add(cabinBottom);
+		
+		// Doors - bottom
+		var doorLeftBottom = Box(1, 0.01, 1.3, "#333300");
+		var doorRightBottom = doorLeftBottom.clone();
+		
+		doorLeftBottom.position.set(-0.65, -0.91, 0.75);
+		doorRightBottom.position.set(-0.65, 0.91, 0.75);
+		
+		сabinMain.add(doorLeftBottom);
+		сabinMain.add(doorRightBottom);
+		
+		// Cabin Back Bottom
+		var cabinBackBottom = Box(0.01, 1.82, 1.3, "#333300");
+		cabinBackBottom.position.set(-0.15, 0, 0.75);
+		сabinMain.add(cabinBackBottom);
+		
+		// Roof
+		var cabinRoof = Box(0.6, 1.82, 0.01, "#333300");
+		cabinRoof.position.set(-0.45, 0, 2.2);
+		сabinMain.add(cabinRoof);
+		
+		return сabinMain;
+	}
+	
+	// Glass frame
+	function DrawCabinFrame() {
+		var сabinFrame = new THREE.Group();
+		
+		var doorLeftFrame1 = Box(0.05, 0.01, 0.9, "#333300");
+		var doorRightFrame1 = doorLeftFrame1.clone();
+		var doorLeftFrame2 = doorLeftFrame1.clone();
+		doorLeftFrame2.rotateY(0.145*Math.PI);
+		var doorRightFrame2 = doorLeftFrame2.clone();
+		var doorLeftFrame3 = Box(0.61, 0.01, 0.1, "#333300");
+		var doorRightFrame3 = doorLeftFrame3.clone();
+		var doorLeftFrame4 = Box(0.02, 0.01, 0.9, "#333300");
+		var doorRightFrame4 = doorLeftFrame4.clone();
+		var cabinBackFrame1 = doorLeftFrame1.clone();
+		cabinBackFrame1.rotateZ(Math.PI/2);
+		var cabinBackFrame2 = cabinBackFrame1.clone();
+		var cabinBackFrame3 = Box(0.01, 1.83, 0.1, "#333300");
+		var cabinBackFrame4 = cabinBackFrame3.clone();
+		var cabinFrontFrame1 = doorLeftFrame2.clone();
+		cabinFrontFrame1.rotateZ(Math.PI/2);
+		var cabinFrontFrame2 = cabinFrontFrame1.clone();
+		var cabinFrontFrame3 = Box(0.01, 0.02, 0.9, "#333300");
+		cabinFrontFrame3.rotateY(0.145*Math.PI);
+		var cabinFrontFrame4 = cabinBackFrame3.clone();
+		cabinFrontFrame4.rotateY(0.145*Math.PI);
+		var cabinFrontFrame5 = cabinFrontFrame4.clone();
+		var cabinFrontFrame6 = cabinFrontFrame4.clone();
+		var cabinFrontFrame7 = cabinFrontFrame4.clone();
+		
+		doorLeftFrame1.position.set(-0.175, -0.91, 1.725);
+		doorRightFrame1.position.set(-0.175, 0.91, 1.725);
+		doorLeftFrame2.position.set(-0.94, -0.91, 1.77);
+		doorRightFrame2.position.set(-0.94, 0.91, 1.77);
+		doorLeftFrame3.position.set(-0.45, -0.91, 2.16);
+		doorRightFrame3.position.set(-0.45, 0.91, 2.16);
+		doorLeftFrame4.position.set(-0.74, -0.91, 1.725);
+		doorRightFrame4.position.set(-0.74, 0.91, 1.725);
+		cabinBackFrame1.position.set(-0.15, -0.89, 1.75);
+		cabinBackFrame2.position.set(-0.15, 0.89, 1.75);
+		cabinBackFrame3.position.set(-0.15, 0, 1.42);
+		cabinBackFrame4.position.set(-0.15, 0, 2.16);
+		cabinFrontFrame1.position.set(-0.965, -0.89, 1.78);
+		cabinFrontFrame2.position.set(-0.965, 0.89, 1.78);
+		cabinFrontFrame3.position.set(-0.965, 0, 1.78);
+		cabinFrontFrame4.position.set(-1.125, 0, 1.46);
+		cabinFrontFrame5.position.set(-1.115, 0, 1.46);
+		cabinFrontFrame6.position.set(-0.78, 0, 2.16);
+		cabinFrontFrame7.position.set(-0.77, 0, 2.16);
+		
+		сabinFrame.add(doorLeftFrame1);
+		сabinFrame.add(doorRightFrame1);
+		сabinFrame.add(doorLeftFrame2);
+		сabinFrame.add(doorRightFrame2);
+		сabinFrame.add(doorLeftFrame3);
+		сabinFrame.add(doorRightFrame3);
+		сabinFrame.add(doorLeftFrame4);
+		сabinFrame.add(doorRightFrame4);
+		сabinFrame.add(cabinBackFrame1);
+		сabinFrame.add(cabinBackFrame2);
+		сabinFrame.add(cabinBackFrame3);
+		сabinFrame.add(cabinBackFrame4);
+		сabinFrame.add(cabinFrontFrame1);
+		сabinFrame.add(cabinFrontFrame2);
+		сabinFrame.add(cabinFrontFrame3);
+		сabinFrame.add(cabinFrontFrame4);
+		сabinFrame.add(cabinFrontFrame5);
+		сabinFrame.add(cabinFrontFrame6);
+		сabinFrame.add(cabinFrontFrame7);
+		
+		return сabinFrame;
+	}
+	
+	// Windows
+	function DrawWindows() {
+		var windows = new THREE.Group();
+		
+		var windowFrontLeft = Box(0.01, 0.86, 0.68, "#ffffff", "glass");
+		windowFrontLeft.rotateY(0.145*Math.PI);
+		var windowFrontRight = windowFrontLeft.clone();
+		var windowDoorLeft = Box(0.53, 0.01, 0.71, "#ffffff", "glass");
+		var windowDoorRight = windowDoorLeft.clone();
+		var windowDoorTriangleLeft = RectTriangle(0.7, -0.34, "#ffffff");
+		var windowDoorTriangleRight = windowDoorTriangleLeft.clone();
+		var windowBack = Box(0.01, 1.73, 0.64, "#ffffff", "glass");
+		
+		windowFrontLeft.position.set(-0.95, -0.44, 1.81);
+		windowFrontRight.position.set(-0.95, 0.44, 1.81);
+		windowDoorLeft.position.set(-0.465, -0.91, 1.755);
+		windowDoorRight.position.set(-0.465, 0.91, 1.755);
+		windowDoorTriangleLeft.position.set(-0.75, -0.915, 1.4);
+		windowDoorTriangleRight.position.set(-0.75, 0.915, 1.4);
+		windowBack.position.set(-0.15, 0, 1.79);
+		
+		windows.add(windowFrontLeft);
+		windows.add(windowFrontRight);
+		windows.add(windowDoorLeft);
+		windows.add(windowDoorRight);
+		windows.add(windowDoorTriangleLeft);
+		windows.add(windowDoorTriangleRight);
+		windows.add(windowBack);
+		
+		return windows;
+	}
+	
+	// Front wheel fenders
+	function DrawFenders() {
+		var fenders = new THREE.Group();
+		
+		var fenderLeft1 = Torus(0.7, 0.15, 8, 16, Math.PI, "#333300");
+		fenderLeft1.rotateX(Math.PI/2);
+		var fenderLeft2 = fenderLeft1.clone();
+		var fenderLeft3 = fenderLeft1.clone();
+		var fenderLeft4 = fenderLeft1.clone();
+		var fenderLeft5 = fenderLeft1.clone();
+		var fenderLeft6 = fenderLeft1.clone();
+		var fenderRight1 = fenderLeft1.clone();
+		var fenderRight2 = fenderLeft1.clone();
+		var fenderRight3 = fenderLeft1.clone();
+		var fenderRight4 = fenderLeft1.clone();
+		var fenderRight5 = fenderLeft1.clone();
+		var fenderRight6 = fenderLeft1.clone();
+		
+		fenderLeft1.position.set(-2, -1, -0.35);
+		fenderLeft2.position.set(-2, -0.9, -0.35);
+		fenderLeft3.position.set(-2, -0.8, -0.35);
+		fenderLeft4.position.set(-2, -0.7, -0.35);
+		fenderLeft5.position.set(-2, -0.6, -0.35);
+		fenderLeft6.position.set(-2, -0.5, -0.35);
+		fenderRight1.position.set(-2, 1, -0.35);
+		fenderRight2.position.set(-2, 0.9, -0.35);
+		fenderRight3.position.set(-2, 0.8, -0.35);
+		fenderRight4.position.set(-2, 0.7, -0.35);
+		fenderRight5.position.set(-2, 0.6, -0.35);
+		fenderRight6.position.set(-2, 0.5, -0.35);
+		
+		fenders.add(fenderLeft1);
+		fenders.add(fenderLeft2);
+		fenders.add(fenderLeft3);
+		fenders.add(fenderLeft4);
+		fenders.add(fenderLeft5);
+		fenders.add(fenderLeft6);
+		fenders.add(fenderRight1);
+		fenders.add(fenderRight2);
+		fenders.add(fenderRight3);
+		fenders.add(fenderRight4);
+		fenders.add(fenderRight5);
+		fenders.add(fenderRight6);
+		
+		return fenders;
+	}
+	
+	// Headlights
+	function DrawHeadlight() {
+		var headlight = new THREE.Group();
+		
+		// Headlights
+		var headlightLeft = Sphere(0.15, 8, 6, Math.PI/2, "#333300");
+		headlightLeft.rotateZ(3*Math.PI/2);
+		headlightRight = headlightLeft.clone();
+		
+		headlightLeft.position.set(-2.65, -0.75, 0.35);
+		headlightRight.position.set(-2.65, 0.75, 0.35);
+		
+		headlight.add(headlightLeft);
+		headlight.add(headlightRight);
+		
+		// Lamps
+		varLampLeft = Cyl(0.12, 0.12, 0.02, 8, "#ccccff");
+		varLampLeft.rotateZ(Math.PI/2);
+		varLampRight = varLampLeft.clone();
+		
+		varLampLeft.position.set(-2.65, -0.75, 0.35);
+		varLampRight.position.set(-2.65, 0.75, 0.35);
+		
+		headlight.add(varLampLeft);
+		headlight.add(varLampRight);
+		
+		return headlight;
+	}
+	
+	// Handles
+	function DrawHandles() {
+		var handles = new THREE.Group();
+		
+		var handleLeft = Cyl(0.02, 0.02, 0.2, 8, "#666666");
+		handleLeft.rotateZ(Math.PI/2);
+		var handleRight = handleLeft.clone();
+		
+		handleLeft.position.set(-0.3, -0.93, 1.2);
+		handleRight.position.set(-0.3, 0.93, 1.2);
+		
+		handles.add(handleLeft);
+		handles.add(handleRight);
+		
+		return handles;
+	}
+	
+	// Body Main
+	function DrawBodyMain() {
+		var bodyMain = new THREE.Group();
+		
+		var bodyBottom = Box(3.8, 2.6, 0.1, "#669900", "wood");
+		var bodyLeft = Box(3.8, 0.1, 1.3, "#669900", "wood");
+		var bodyRight = bodyLeft.clone();
+		var bodyFront = Box(0.1, 2.4, 1.3, "#669900", "wood");
+		var bodyBack = bodyFront.clone();
+		
+		bodyBottom.position.set(1.85, 0, 0.3);
+		bodyLeft.position.set(1.85, -1.25, 1);
+		bodyRight.position.set(1.85, 1.25, 1);
+		bodyFront.position.set(0, 0, 1);
+		bodyBack.position.set(3.7, 0, 1);
+		
+		bodyMain.add(bodyBottom);
+		bodyMain.add(bodyLeft);
+		bodyMain.add(bodyRight);
+		bodyMain.add(bodyFront);
+		bodyMain.add(bodyBack);
+		
+		return bodyMain;
+	}
+	
+	// Body Stand
+	function DrawBodyStand() {
+		var bodyStand = new THREE.Group();
+		
+		var bodyStand1 = Box(0.7, 1.1, 0.2, "#333300");
+		var bodyStand2 = bodyStand1.clone();
+		var bodyStand3 = bodyStand1.clone();
+		
+		bodyStand1.position.set(0.5, 0, 0.2);
+		bodyStand2.position.set(1.8, 0, 0.2);
+		bodyStand3.position.set(3.1, 0, 0.2);
+		
+		bodyStand.add(bodyStand1);
+		bodyStand.add(bodyStand2);
+		bodyStand.add(bodyStand3);
+		
+		return bodyStand;
+	}
+	
+	// Drawing larger parts
+	// Chassis
+	function DrawChassis() {
+		var chassis = new THREE.Group();
+		
+		var collect_wheels = DrawWheels();
+		var collect_rims = DrawRims();
+		var collect_arms = DrawArms();
+		var collect_beams = DrawBeams();
+		
+		chassis.add(collect_wheels); 
+		chassis.add(collect_rims); 
+		chassis.add(collect_arms); 
+		chassis.add(collect_beams); 
+		
+		return chassis;
+	}
+	
+	// Cabin
+	function DrawCabin() {
+		var cabin = new THREE.Group();
+		
+		var collect_cabinFront = DrawCabinFront();
+		var collect_cabinMain = DrawCabinMain();
+		var collect_cabinFrame = DrawCabinFrame();
+		var collect_windows = DrawWindows();
+		var collect_fenders = DrawFenders();
+		var collect_headlights = DrawHeadlight();
+		var collect_handles = DrawHandles();
+		
+		cabin.add(collect_cabinFront);
+		cabin.add(collect_cabinMain);
+		cabin.add(collect_cabinFrame);
+		cabin.add(collect_windows);
+		cabin.add(collect_fenders);
+		cabin.add(collect_headlights);
+		cabin.add(collect_handles);
+		
+		return cabin;
+	}
+	
+	// Body
+	function DrawBody() {
+		var body = new THREE.Group();
+		
+		var collect_bodyMain = DrawBodyMain();
+		var collect_bodyStand = DrawBodyStand();
+		
+		body.add(collect_bodyMain);
+		body.add(collect_bodyStand);
+		
+		return body;
+	}
+	
+	// Truck
+	function DrawGaz51() {
+		var truck = new THREE.Group();
+		var collect_chassis = DrawChassis();
+		var collect_cabin = DrawCabin();
+		var collect_body = DrawBody();
+		
+		truck.add(collect_chassis);
+		truck.add(collect_cabin);
+		truck.add(collect_body);
+		
+		return truck;
+	}
+	
+	SetColStuff()
+	gaz51 = DrawGaz51();
+	gaz51.scale.set(W,W,W);
+	scene.add(gaz51);
+	
+	// Sources of light
+	scene.add( new THREE.AmbientLight( 0x555555 ) );
+	var directionalLight = new THREE.DirectionalLight( 0xffffff, 1 );
+	directionalLight.position.set(5,-2,4).normalize();
+	scene.add( directionalLight );
+	directionalLight.position.set(-5,-2,4).normalize();
+	scene.add( directionalLight );
+
+	// Simple animation
+	function animation() {
+		var timer = Date.now() * 0.00025;
+		
+		if (Step==1) gaz51.position.x += 0.3;
+		if (Step==-1) gaz51.position.x -= 0.3;
+	}
+	
+	// Render function
+	function render() {
+        animation();
+		requestAnimationFrame(render);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+	render();	
+	
+</script>
+</body>
+</html>

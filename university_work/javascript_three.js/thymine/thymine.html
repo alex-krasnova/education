@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Thymine Molecule</title>
+	<style>
+		body { margin: 0; padding: 0; }
+		canvas { width: 100%; height: 100%; }
+	</style>
+</head>
+<body>
+<script src="http://livelab.spb.ru/x3d/three.min.js"></script>
+<script src="http://livelab.spb.ru/x3d/OrbitControls.js"></script>
+<script>
+	var WIDTH = window.innerWidth;
+	var HEIGHT = window.innerHeight;
+	
+	// Scene
+	var scene = new THREE.Scene();
+	scene.background = new THREE.Color(0xd3d3d3);
+	
+	// Renderer
+	var renderer = new THREE.WebGLRenderer({antialias:true});
+	renderer.setSize(WIDTH, HEIGHT);
+	renderer.setClearColor(0xffffff, 1);
+	document.body.appendChild(renderer.domElement);
+
+	// Camera
+	var camera = new THREE.PerspectiveCamera(70, WIDTH/HEIGHT);
+	scene.add(camera);
+	// Installing the camera control module
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+	// Setting the camera position
+    camera.position.x = 0;
+    camera.position.y = 0;
+    camera.position.z = 60;
+    controls.target.set(0, 15, 0);
+	
+	// Colors
+	var blue = 0x0066ff;
+	var red = 0xcc0000;
+	var gray = 0x606060;
+	var white = 0xffffff;
+
+	// Create of materials
+	var blueMaterial = new THREE.MeshStandardMaterial({color: blue});
+	var redMaterial = new THREE.MeshStandardMaterial({color: red});
+	var grayMaterial = new THREE.MeshStandardMaterial({color: gray});
+	var whiteMaterial = new THREE.MeshStandardMaterial({color: white});
+
+	// Create spheres and cylinders
+	var sphereGeometryL = new THREE.SphereGeometry(2, 50, 50);
+	var sphereGeometryS = new THREE.SphereGeometry(1.5, 50, 50);
+	var cylinderGeometryL = new THREE.CylinderGeometry(0.8, 0.8, 5, 32);
+	var cylinderGeometryS = new THREE.CylinderGeometry(0.2, 0.2, 5, 32);
+	var cylinderGeometryLS = new THREE.CylinderGeometry(0.8, 0.8, 3, 32);
+
+	// Main Shape
+	var mainShape = new THREE.Object3D();
+
+	// Arrays of coordinates and positions
+	var ArrayPositionX = new Array();
+	var ArrayPositionY = new Array();
+	var ArrayPositionZ = new Array();
+	var ArrayRotationAngle = new Array();
+
+	// Large blue spheres
+	ArrayPositionY = [-Math.sqrt(75),Math.sqrt(75)];
+	for (var i = 0; i <= 1; i++) {
+		var wholeElement = new THREE.Mesh(sphereGeometryL, blueMaterial); 
+		wholeElement.position.x = -5;
+		wholeElement.position.y = ArrayPositionY[i];
+		mainShape.add(wholeElement);
+	}
+
+	// Large gray spheres
+	ArrayPositionX = [5,10,5,-10,20];
+	ArrayPositionY = [-Math.sqrt(75),0,Math.sqrt(75),0,0];
+	for (var i = 0; i <= 4; i++) {
+		var wholeElement = new THREE.Mesh(sphereGeometryL, grayMaterial); 
+		wholeElement.position.x = ArrayPositionX[i];
+		wholeElement.position.y = ArrayPositionY[i];
+		mainShape.add(wholeElement);
+	}
+
+	// Large red spheres
+	ArrayPositionX = [-20,10];
+	ArrayPositionY = [0,(-2*Math.sqrt(75))];
+	for (var i = 0; i <= 1; i++) {
+		var wholeElement = new THREE.Mesh(sphereGeometryL, redMaterial); 
+		wholeElement.position.x = ArrayPositionX[i];
+		wholeElement.position.y = ArrayPositionY[i];
+		mainShape.add(wholeElement);
+	}
+
+	// Small white spheres
+	ArrayPositionX = [10,-10,-10,20,20,20];
+	ArrayPositionY = [(2*Math.sqrt(75)),(2*Math.sqrt(75)),(-2*Math.sqrt(75)),3,-6,3];
+	ArrayPositionZ = [0,0,0,5.196,0,-5.196];
+	for (var i = 0; i <= 5; i++) {
+		var wholeElement = new THREE.Mesh(sphereGeometryS, whiteMaterial); 
+		wholeElement.position.x = ArrayPositionX[i];
+		wholeElement.position.y = ArrayPositionY[i];
+		wholeElement.position.z = ArrayPositionZ[i];
+		mainShape.add(wholeElement);
+	}
+
+	// Cylinders - all cylinders connecting the spheres are double. The halves can be different colors.
+	// Thymine has two types of bonds. They will be indicated as a single thick line, or a double thin line.
+	
+	// Single blue-grey cylinders
+	ArrayPositionX = [0,0,-7.5,-7.5];
+	ArrayPositionY = [-Math.sqrt(75),Math.sqrt(75),(Math.sqrt(75)/2),(-Math.sqrt(75)/2)];
+	ArrayRotationAngle = [-90,-90,150,30];
+	for (var i = 0; i <= 3; i++) {
+		var wholeElement = new THREE.Object3D();
+		var leftHalfElement = new THREE.Mesh(cylinderGeometryL, blueMaterial);
+		leftHalfElement.position.y = -2.5;
+		wholeElement.add(leftHalfElement);
+		var rightHalfElement = new THREE.Mesh(cylinderGeometryL, grayMaterial);
+		rightHalfElement.position.y = 2.5;
+		wholeElement.add(rightHalfElement);
+		wholeElement.position.x = ArrayPositionX[i];
+		wholeElement.position.y = ArrayPositionY[i];
+		wholeElement.rotation.z = ArrayRotationAngle[i] * Math.PI / 180;
+		mainShape.add(wholeElement);
+	}
+
+	// Single gray cylinders
+	ArrayPositionX = [7.5,15];
+	ArrayPositionY = [(-Math.sqrt(75)/2),0];
+	ArrayRotationAngle = [-30,90];
+	for (var i = 0; i <= 1; i++) {
+		var wholeElement = new THREE.Object3D();
+		var leftHalfElement = new THREE.Mesh(cylinderGeometryL, grayMaterial);
+		leftHalfElement.position.y = -2.5;
+		wholeElement.add(leftHalfElement);
+		var rightHalfElement = new THREE.Mesh(cylinderGeometryL, grayMaterial);
+		rightHalfElement.position.y = 2.5;
+		wholeElement.add(rightHalfElement);
+		wholeElement.position.x = ArrayPositionX[i];
+		wholeElement.position.y = ArrayPositionY[i];
+		wholeElement.rotation.z = ArrayRotationAngle[i] * Math.PI / 180;
+		mainShape.add(wholeElement);
+	}
+
+	// Single white and blue cylinders 
+	ArrayPositionY = [(3*Math.sqrt(75)/2),(-3*Math.sqrt(75)/2)];
+	ArrayRotationAngle = [-150,-30];
+	for (var i = 0; i <= 1; i++) {
+		var wholeElement = new THREE.Object3D();
+		var leftHalfElement = new THREE.Mesh(cylinderGeometryL, whiteMaterial);
+		leftHalfElement.position.y = -2.5;
+		wholeElement.add(leftHalfElement);
+		var rightHalfElement = new THREE.Mesh(cylinderGeometryL, blueMaterial);
+		rightHalfElement.position.y = 2.5;
+		wholeElement.add(rightHalfElement);
+		wholeElement.position.x = -7.5;
+		wholeElement.position.y = ArrayPositionY[i];
+		wholeElement.rotation.z = ArrayRotationAngle[i] * Math.PI / 180;
+		mainShape.add(wholeElement);
+	}
+
+	// Double thin red-grey cylinders
+	ArrayPositionX = [-15,7.5];
+	ArrayPositionY = [0,(-3*Math.sqrt(75)/2)];
+	ArrayRotationAngle = [-90,30];
+	for (var i = 0; i <= 1; i++) {
+		var wholeElement = new THREE.Object3D();
+		// Drawing each small cylinder
+		for (var j = 0; j <= 1; j++) {
+			var halfElement = new THREE.Object3D();
+			var leftQuarterElement = new THREE.Mesh(cylinderGeometryS, redMaterial);
+			leftQuarterElement.position.y = -2.5;
+			halfElement.add(leftQuarterElement);
+			var rightQuarterElement = new THREE.Mesh(cylinderGeometryS, grayMaterial);
+			rightQuarterElement.position.y = 2.5;
+			halfElement.add(rightQuarterElement);
+			halfElement.position.x = Math.pow(-1,j)*0.6;
+			wholeElement.add(halfElement);
+		}
+		// Offset position and rotation of double cylinders
+		wholeElement.position.x = ArrayPositionX[i];
+		wholeElement.position.y = ArrayPositionY[i];
+		wholeElement.rotation.z = ArrayRotationAngle[i] * Math.PI / 180;
+		mainShape.add(wholeElement);
+	}
+
+	// Shortened single lateral gray-white cylinders
+	ArrayPositionY = [1.5,-3,1.5];
+	ArrayPositionZ = [2.598,0,-2.598];
+	ArrayRotationAngle = [60,180,-60];
+	for (var i = 0; i <= 2; i++) {
+		var wholeElement = new THREE.Object3D();
+		var leftHalfElement = new THREE.Mesh(cylinderGeometryLS, grayMaterial);
+		leftHalfElement.position.y = -1.5;
+		wholeElement.add(leftHalfElement);
+		var rightHalfElement = new THREE.Mesh(cylinderGeometryLS, whiteMaterial);
+		rightHalfElement.position.y = 1.5;
+		wholeElement.add(rightHalfElement);
+		wholeElement.position.x = 20;
+		wholeElement.position.y = ArrayPositionY[i];
+		wholeElement.position.z = ArrayPositionZ[i];
+		wholeElement.rotation.x = ArrayRotationAngle[i] * Math.PI / 180;
+		mainShape.add(wholeElement);
+	}
+
+	// Double thin gray cylinder - in a single copy, do not add to the cycle
+	var wholeElement = new THREE.Object3D();
+	// Drawing each small cylinder
+	for (var j = 0; j <= 1; j++) {
+		var halfElement = new THREE.Object3D();
+		var leftQuarterElement = new THREE.Mesh(cylinderGeometryS, grayMaterial);
+		leftQuarterElement.position.y = -2.5;
+		halfElement.add(leftQuarterElement);
+		var rightQuarterElement = new THREE.Mesh(cylinderGeometryS, grayMaterial);
+		rightQuarterElement.position.y = 2.5;
+		halfElement.add(rightQuarterElement);
+		halfElement.position.x = Math.pow(-1,j)*0.6;
+		wholeElement.add(halfElement);
+	}
+	// Offset position and rotation of double cylinders
+	wholeElement.position.x = 7.5;
+	wholeElement.position.y = Math.sqrt(75) / 2;
+	wholeElement.rotation.z = -150 * Math.PI / 180;
+	mainShape.add(wholeElement);
+
+	// Single gray-white cylinder - in a single copy, do not add to the cycle
+	var wholeElement = new THREE.Object3D();
+	var leftHalfElement = new THREE.Mesh(cylinderGeometryL, grayMaterial);
+	leftHalfElement.position.y = -2.5;
+	wholeElement.add(leftHalfElement);
+	var rightHalfElement = new THREE.Mesh(cylinderGeometryL, whiteMaterial);
+	rightHalfElement.position.y = 2.5;
+	wholeElement.add(rightHalfElement);
+	wholeElement.position.x = 7.5;
+	wholeElement.position.y = 3 * Math.sqrt(75) / 2;
+	wholeElement.rotation.z = -30 * Math.PI / 180;
+	mainShape.add(wholeElement);
+
+	// Tilt and lift the shape a bit and add it to the scene
+	mainShape.position.y = 15;
+	mainShape.rotation.x = 20 * Math.PI / 180;
+	scene.add(mainShape);
+
+	// Adding a Light
+	particleLight = new THREE.Mesh(
+		new THREE.SphereBufferGeometry(2, 15, 15),
+		new THREE.MeshBasicMaterial({color: 0xffffff})
+	);
+	particleLight.position.y = 45;
+	scene.add(particleLight);
+	var pointLight = new THREE.PointLight(0xffffff, 1, 80);
+	particleLight.add(pointLight);
+
+	// Render function
+	var render = function () {
+		var timer = Date.now() * 0.00025;
+		particleLight.position.x = Math.sin( timer * 12 ) * 25;
+		particleLight.position.y = 20+Math.sin( timer * 8 ) * 20;
+		particleLight.position.z = Math.sin( timer * 3 ) * 25;
+		requestAnimationFrame(render);
+		controls.update();
+		renderer.shadowMap.Enabled = true;
+		renderer.shadowMapSoft = true;
+		mainShape.rotation.y += 0.005;
+		renderer.render(scene, camera);
+	}
+
+	render();	
+	
+</script>
+</body>
+</html>
